@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Earshot</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<section id="landing" class="card">
+  <h1>👂 Earshot</h1>
+  <p class="tag">Guess the YouTube video by its sound alone.<br>First to 10 wins.</p>
+  <label>Your name <input id="name" maxlength="20" autocomplete="off" placeholder="e.g. Sam"></label>
+  <button id="create">Create a room</button>
+  <div class="or">or join a friend</div>
+  <div class="row">
+    <input id="code" maxlength="5" autocomplete="off" placeholder="Room code">
+    <button id="join">Join</button>
+  </div>
+  <p id="landing-error" class="error"></p>
+</section>
+
+<div id="game" hidden>
+  <header>
+    <h1>👂 Earshot</h1>
+    <div class="room">Room <b id="room-code"></b> <button id="copy" class="small">Copy invite link</button></div>
+  </header>
+
+  <main>
+    <section class="stage">
+      <p id="status"></p>
+
+      <div class="screen">
+        <div id="yt"></div>
+        <div id="cover"><div id="cover-icon"></div><div id="cover-text"></div></div>
+      </div>
+
+      <div class="controls">
+        <button id="replay" class="small" title="Restart the clip (also fixes blocked autoplay)">↺ Replay</button>
+        <label class="volume">🔊 <input id="volume" type="range" min="0" max="100" value="80"></label>
+      </div>
+
+      <form id="dj-form" hidden>
+        <h2>You're the DJ 🎧 — pick a video</h2>
+        <input id="dj-link" autocomplete="off" placeholder="Paste a YouTube link">
+        <input id="dj-answer" autocomplete="off" maxlength="120" placeholder="Answer (e.g. Artist - Song title)">
+        <div class="row">
+          <label class="start">Start at <input id="dj-start" type="number" min="0" value="0"> sec</label>
+          <button>Play it</button>
+        </div>
+        <p id="dj-error" class="error"></p>
+      </form>
+
+      <div id="dj-controls" hidden>
+        <span>Answer: <b id="dj-secret"></b></span>
+        <span class="hint">Click ✓ on a close guess to award it.</span>
+        <button id="skip" class="small">Reveal &amp; skip</button>
+      </div>
+
+      <div class="host-controls">
+        <button id="start" hidden>Start game</button>
+        <button id="restart" hidden>Play again</button>
+      </div>
+    </section>
+
+    <aside>
+      <ol id="scores"></ol>
+      <div class="chat">
+        <ul id="log"></ul>
+        <form id="chat-form">
+          <input id="chat-input" autocomplete="off" maxlength="200" placeholder="Type your guess…">
+          <button>Send</button>
+        </form>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<div id="fatal" hidden>
+  <div class="card"><p id="fatal-text"></p><a href="./">Back to start</a></div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="game.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
