@@ -5,7 +5,6 @@
 // it with the picture covered, and guesses go in chat. First to WIN_SCORE wins.
 
 const WIN_SCORE = 10;
-const REVEAL_MS = 8000;
 const CHAT_KEEP = 80;
 const PEER_PREFIX = 'earshot-room-';
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -247,7 +246,6 @@ function joinRoom(code, name) {
 const conns = new Map();  // peerId -> DataConnection
 const S = { phase: 'lobby', players: [], djId: null, round: null, chat: [], winnerId: null };
 let msgSeq = 0;
-let revealTimer = null;
 
 const playerById = (id) => S.players.find((p) => p.id === id);
 
@@ -284,7 +282,6 @@ function nextDj() {
 }
 
 function newPicking(djId) {
-  clearTimeout(revealTimer);
   S.phase = 'picking';
   S.round = null;
   S.djId = djId;
@@ -329,6 +326,10 @@ function handleMessage(from, m) {
       if (S.phase === 'playing' && from === S.djId && target && target.id !== S.djId) reveal(target);
       break;
     }
+    case 'pass':
+      // The DJ hands off when they're done with the song; the host can too, in case the DJ goes quiet.
+      if (S.phase === 'reveal' && (from === S.djId || from === myId)) newPicking(nextDj());
+      break;
     case 'error':
       if (S.phase === 'playing' && from === S.djId) {
         sys("⚠️ That video can't be embedded. DJ, pick another one.");
@@ -390,13 +391,7 @@ function reveal(winner) {
     sys(`🏆 ${winner.name} wins the game!`, 'win');
     return;
   }
-  S.phase = 'reveal';
-  clearTimeout(revealTimer);
-  revealTimer = setTimeout(() => {
-    if (S.phase !== 'reveal') return;
-    newPicking(nextDj());
-    broadcast();
-  }, REVEAL_MS);
+  S.phase = 'reveal';  // the video keeps playing until the DJ passes
 }
 
 function playerLeft(id) {
@@ -406,12 +401,11 @@ function playerLeft(id) {
   const [p] = S.players.splice(i, 1);
   sys(`${p.name} left.`);
   if (S.phase !== 'lobby' && S.players.length < 2) {
-    clearTimeout(revealTimer);
     S.phase = 'lobby';
     S.round = null;
     sendAll({ t: 'stop' });
     sys('Waiting for more players…');
-  } else if (id === S.djId && (S.phase === 'picking' || S.phase === 'playing')) {
+  } else if (id === S.djId && (S.phase === 'picking' || S.phase === 'playing' || S.phase === 'reveal')) {
     newPicking(S.players[i % S.players.length].id);
   }
   broadcast();
@@ -459,7 +453,8 @@ function render() {
     const w = view.players.find((p) => p.id === view.round?.winnerId);
     status = phase === 'over'
       ? `🏆 ${view.players.find((p) => p.id === view.winnerId)?.name ?? 'Someone'} wins!`
-      : (w ? `🎉 ${w.name} got it!` : 'Nobody got it.');
+      : (w ? `🎉 ${w.name} got it!` : 'Nobody got it.') +
+        (amDj ? '' : ` Waiting for ${dj?.name ?? 'the DJ'} to pass…`);
   }
   $('#status').textContent = status;
 
@@ -474,6 +469,12 @@ function render() {
   $('#dj-controls').hidden = !(phase === 'playing' && amDj);
   $('#dj-secret').textContent = mySecret ?? '';
   if (phase !== 'picking' || !amDj) $('#dj-error').textContent = '';
+
+  // Pass to the next DJ (the DJ, or the host as a fallback)
+  const djIndex = view.players.findIndex((p) => p.id === view.djId);
+  const next = view.players[(djIndex + 1) % view.players.length];
+  $('#pass').hidden = !(phase === 'reveal' && (amDj || isHost));
+  $('#pass').textContent = next.id === myId ? 'Pass to me →' : `Pass to ${next.name} →`;
 
   // Host buttons
   $('#start').hidden = !(isHost && phase === 'lobby');
@@ -580,6 +581,7 @@ function wire() {
   $('#start').onclick = () => send({ t: 'start' });
   $('#restart').onclick = () => send({ t: 'restart' });
   $('#skip').onclick = () => send({ t: 'skip' });
+  $('#pass').onclick = () => send({ t: 'pass' });
 
   $('#replay').onclick = () => {
     if (!ytReady || !current) return;
